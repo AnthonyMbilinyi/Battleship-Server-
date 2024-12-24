@@ -1,0 +1,230 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <random>
+
+using namespace std;
+
+// Define grid size
+const int GRID_SIZE = 10;
+
+// Define ship sizes
+const int SHIP_SIZES[] = {5, 4, 3, 3, 2};
+
+// Define ship names
+const string SHIP_NAMES[] = {"Aircraft Carrier", "Battleship", "Submarine", "Cruiser", "Destroyer"};
+
+// Structure to represent a ship
+struct Ship {
+    int size;
+    string name;
+    bool isSunk;
+    vector<pair<int, int>> coordinates; 
+};
+
+// Function to create a grid
+vector<vector<char>> createGrid() {
+    vector<vector<char>> grid(GRID_SIZE, vector<char>(GRID_SIZE, '~')); 
+    return grid;
+}
+
+// Function to print the grid
+void printGrid(const vector<vector<char>>& grid) {
+    cout << "   ";
+    for (int i = 0; i < GRID_SIZE; ++i) {
+        cout << " " << static_cast<char>('A' + i);
+    }
+    cout << endl;
+
+    for (int i = 0; i < GRID_SIZE; ++i) {
+        cout << " " << i + 1 << " ";
+        for (int j = 0; j < GRID_SIZE; ++j) {
+            cout << " " << grid[i][j];
+        }
+        cout << endl;
+    }
+}
+
+// Function to place ships randomly on the grid
+void placeShips(vector<vector<char>>& grid, vector<Ship>& ships) {
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<> dis(0, GRID_SIZE - 1);
+
+    for (int i = 0; i < sizeof(SHIP_SIZES) / sizeof(SHIP_SIZES[0]); ++i) {
+        Ship ship;
+        ship.size = SHIP_SIZES[i];
+        ship.name = SHIP_NAMES[i];
+        ship.isSunk = false;
+
+        bool placed = false;
+        while (!placed) {
+            int row, col, orientation; 
+            orientation = dis(gen) % 2; // 0 for horizontal, 1 for vertical
+
+            if (orientation == 0) { // Horizontal
+                row = dis(gen);
+                col = dis(gen);
+                if (col + ship.size - 1 < GRID_SIZE) {
+                    bool canPlace = true;
+                    for (int j = 0; j < ship.size; ++j) {
+                        if (grid[row][col + j] != '~') {
+                            canPlace = false;
+                            break;
+                        }
+                    }
+                    if (canPlace) {
+                        for (int j = 0; j < ship.size; ++j) {
+                            ship.coordinates.push_back({row, col + j});
+                            grid[row][col + j] = 'S'; 
+                        }
+                        placed = true;
+                    }
+                }
+            } else { // Vertical
+                row = dis(gen);
+                col = dis(gen);
+                if (row + ship.size - 1 < GRID_SIZE) {
+                    bool canPlace = true;
+                    for (int j = 0; j < ship.size; ++j) {
+                        if (grid[row + j][col] != '~') {
+                            canPlace = false;
+                            break;
+                        }
+                    }
+                    if (canPlace) {
+                        for (int j = 0; j < ship.size; ++j) {
+                            ship.coordinates.push_back({row + j, col});
+                            grid[row + j][col] = 'S'; 
+                        }
+                        placed = true;
+                    }
+                }
+            }
+        }
+        ships.push_back(ship);
+    }
+}
+
+// Function to get player's move
+pair<int, int> getPlayerMove() {
+    char col;
+    int row;
+
+    cout << "Enter your move (e.g., A1): ";
+    cin >> col >> row;
+
+    return {row - 1, col - 'A'}; 
+}
+
+// Function to check if a ship is sunk
+bool isShipSunk(const Ship& ship) {
+    for (const auto& coord : ship.coordinates) {
+        if (grid[coord.first][coord.second] != 'X') {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Function to play a round
+void playRound(vector<vector<char>>& playerGrid, vector<vector<char>>& opponentGrid, 
+               vector<Ship>& playerShips, vector<Ship>& opponentShips) {
+    // Player's turn
+    pair<int, int> move = getPlayerMove();
+    int row = move.first;
+    int col = move.second;
+
+    if (opponentGrid[row][col] == '~') {
+        opponentGrid[row][col] = '-'; 
+        cout << "Miss!" << endl;
+    } else if (opponentGrid[row][col] == 'S') {
+        opponentGrid[row][col] = 'X'; 
+        cout << "Hit!" << endl;
+
+        // Check if any ship is sunk
+        for (Ship& ship : opponentShips) {
+            if (ship.isSunk) continue;
+            if (isShipSunk(ship)) {
+                ship.isSunk = true;
+                cout << "You sunk the opponent's " << ship.name << "!" << endl;
+            }
+        }
+    } else {
+        cout << "You already fired at this location." << endl;
+    }
+
+    // Opponent's turn (simplified AI)
+    // ... (Implement a basic AI for opponent's moves)
+
+    // Print grids
+    cout << "Your Grid:" << endl;
+    printGrid(playerGrid);
+    cout << "Opponent's Grid:" << endl;
+    printGrid(opponentGrid);
+}
+
+// Function to check if all ships are sunk
+bool areAllShipsSunk(const vector<Ship>& ships) {
+    for (const Ship& ship : ships) {
+        if (!ship.isSunk) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Main function
+int main() {
+    vector<vector<char>> playerGrid = createGrid();
+    vector<vector<char>> opponentGrid = createGrid();
+    vector<Ship> playerShips;
+    vector<Ship> opponentShips;
+
+    placeShips(playerGrid, playerShips);
+    placeShips(opponentGrid, opponentShips);
+
+    // Game loop
+    while (true) {
+        playRound(playerGrid, opponentGrid, playerShips, opponentShips);
+
+        if (areAllShipsSunk(opponentShips)) {
+            cout << "Congratulations! You win!" << endl;
+            break;
+        }
+
+        // Check if opponent sunk all player's ships
+        if (areAllShipsSunk(playerShips)) {
+            cout << "You lose!" << endl;
+            break;
+        }
+    }
+
+    return 0;
+}
+
+Explanation:
+ * Includes: Include necessary headers for input/output, vectors, strings, and random number generation.
+ * Grid and Ship Definitions:
+   * GRID_SIZE: Define the size of the grid (10x10).
+   * SHIP_SIZES: Define the sizes of the ships (5, 4, 3, 3, 2).
+   * SHIP_NAMES: Define the names of the ships.
+   * Ship struct: Represents a ship with size, name, sunk status, and coordinates.
+ * Grid Functions:
+   * createGrid(): Creates a grid filled with '~' (empty water).
+   * printGrid(): Prints the grid to the console.
+ * Ship Placement:
+   * placeShips(): Randomly places ships on the grid.
+     * Uses random_device and mt19937 for random number generation.
+     * Checks for valid placement (no overlapping ships).
+     * Marks ship locations with 'S' on the grid.
+ * Player Input:
+   * getPlayerMove(): Gets player's move (e.g., "A1") and converts it to grid coordinates.
+ * Game Logic:
+   * playRound(): Handles a single round of the game.
+     * Gets player's move.
+     * Updates grids based on the move (hit, miss).
+     * Checks if a ship is sunk.
+     * (To be implemented: Implement a basic AI for opponent's moves.)
+ * Win/Lose Conditions:
+   * areAllShipsSunk(): Checks
